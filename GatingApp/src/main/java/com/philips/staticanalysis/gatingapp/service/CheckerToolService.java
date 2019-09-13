@@ -14,9 +14,7 @@ public interface CheckerToolService {
 
 	String checkIfProjectIsGo(int projectId);
 
-	String newProjectOfNewUserExecute(String pathOfGitRepo) throws InterruptedException;
-
-	String legacyProjectOfNewUserExecute(String pathOfGitRepo) throws InterruptedException;
+	String legacyProjectOfNewUserExecute(ProjectInfo pinfo) throws InterruptedException;
 
 	ProjectInfo addLegacyProjectInfo();
 
@@ -25,4 +23,12 @@ public interface CheckerToolService {
 	List<String> getJavaFilesPresentInInputFolder();
 
 	List<String> getErrorsFromAllTools(String filename);
+
+	String newProjectOfNewUserExecute(int projectId) throws InterruptedException;
+
+	Integer getProjectIdOfNewProject(String pathOfGitRepo);
+
+	ProjectInfo getProjectIdOfLegacyProject(String pathOfGitRepo) throws InterruptedException;
+
+	List<String> getSimianErrorInAList();
 }

@@ -21,7 +21,7 @@ public class InMemoryCheckerToolDAO implements CheckerToolDAO{
 	}
 
 	@Override
-	public void updateReport(int projectId, int noOfPmdErrors, int noOfCheckstyleErrors, int noOfSimianErrors,
+	public int updateReport(int projectId, int noOfPmdErrors, int noOfCheckstyleErrors, int noOfSimianErrors,
 			int noOfYascaErrors, String resultOfRun) {
 		Reports rObj=new Reports();
 		rObj.setProjectId(projectId);
@@ -32,6 +32,8 @@ public class InMemoryCheckerToolDAO implements CheckerToolDAO{
 		rObj.setResultOfRun(resultOfRun);
 		
 		em.persist(rObj);
+		
+		return rObj.getProjectId();
 	}
 
 	@Override
@@ -49,12 +51,13 @@ public class InMemoryCheckerToolDAO implements CheckerToolDAO{
 	}
 
 	@Override
-	public void updateProjectInfo(int projectId, int noOfPmdErrors, int noOfCheckstyleErrors, int noOfSimianErrors,
+	public int updateProjectInfo(int projectId, int noOfPmdErrors, int noOfCheckstyleErrors, int noOfSimianErrors,
 			int noOfYascaErrors) {
 		em.createQuery("update ProjectInfo set noOfPmdErrorsThreshhold=:firstParam, noOfCheckstyleErrorsThreshhold=:secondParam,"
 				+ "noOfSimianErrorsThreshhold=:thirdParam, noOfYascaErrorsThreshold=:fouthParam where projectId=:fifthParam").setParameter("firstParam", noOfPmdErrors).
 				setParameter("secondParam", noOfCheckstyleErrors).setParameter("thirdParam", noOfSimianErrors).setParameter("fouthParam", noOfYascaErrors).
 				setParameter("fifthParam", projectId).executeUpdate();
+		return projectId;
 	}
 
 }

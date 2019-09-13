@@ -1,6 +1,5 @@
 package com.philips.staticanalysis.gatingapp.service;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -30,6 +29,13 @@ import au.com.bytecode.opencsv.CSVReader;
 public class CheckerToolServiceImpl implements CheckerToolService{
 
 	CheckerToolDAO cdao;
+	HelperService hservice;
+	
+	@Autowired
+	public void setHservice(HelperService hservice) {
+		this.hservice = hservice;
+	}
+
 	private static org.apache.log4j.Logger log = Logger.getLogger(CheckerToolServiceImpl.class);
 	
 	static String cloneDirectoryPath;
@@ -74,10 +80,6 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 			t.setToolCommand(cmd);
 		}
 	} 	 
-
-//	public CheckerToolServiceImpl() {
-//		
-//	}
 	
 	 static void readThePathConfigFile() {
 		final ResourceBundle props=ResourceBundle.getBundle("path");
@@ -88,7 +90,6 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 	private static CheckerTool addToToolsList(CheckerTool ct) {
         if(ct.getToolName()!=null && ct.getToolCommand()!=null && ct.getToolExeFilePath()!=null) {
         	listOfTools.add(ct);
-            System.out.println("Adding tool: "+ct.getToolName());
         	ct=new CheckerTool();
         }		
         return ct;
@@ -166,7 +167,7 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 		return resultOfRun;
 	}
 
-	private Reports getErrorCountForGivenProject() {
+	public Reports getErrorCountForGivenProject() {
 		Reports rObj=new Reports();
 		rObj.setNoOfPmdErrors(countPmdError());
 		rObj.setNoOfCheckstyleErrors(countCheckstyleError());
@@ -177,7 +178,7 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 		return rObj;
 	}
 
-	private int countYascaError() {
+	public int countYascaError() {
         int count=0;
         try (CSVReader reader = new CSVReader(new FileReader("./outputYasca.csv"))){
             while ((reader.readNext()) != null)
@@ -188,60 +189,37 @@ public class CheckerToolServiceImpl implements CheckerToolService{
         return count-1;
 	}
 
-	private int countSimianError() {
-		try (BufferedReader br = new BufferedReader(new FileReader("./outputSimian.txt"))){
-			String sCurrentLine;
-			while ((sCurrentLine = br.readLine()) != null) {
-			    if(sCurrentLine.contains("Found") && sCurrentLine.contains("duplicate lines in") && sCurrentLine.contains("blocks in") && sCurrentLine.contains("files")) {
-			    	String[] arrayOfWords=sCurrentLine.split(" ");
-			    	return Integer.parseInt(arrayOfWords[1]);
-			    }
-			}
-		} 
-		catch (IOException e) {
-			log.error(e.getMessage());		
+	public int countSimianError(){
+		List<String> listOfFileLines;
+		listOfFileLines=hservice.readAFile("./outputSimian.txt");
+		for(String x:listOfFileLines) {
+		    if(x.contains("Found") && x.contains("duplicate lines in") && x.contains("blocks in") && x.contains("files")) {
+		    	String[] arrayOfWords=x.split(" ");
+		    	return Integer.parseInt(arrayOfWords[1]);
+		    }
 		}
 		return -1;
 	}
 
-	private int countCheckstyleError() {
-		String path = "./outputCheckstyle.txt";
-	    String lastLine = "";
-		String sCurrentLine;
-		
-		try (BufferedReader br = new BufferedReader(new FileReader(path))){
-			while ((sCurrentLine = br.readLine()) != null) {
-			    lastLine = sCurrentLine;
-			}
-		} 
-		catch (IOException e) {
-			log.error(e.getMessage());		
-		}
-		int noOfErrors= countNoOfLinesInAFile(path)-3;
+	public int countCheckstyleError() {
+		List<String> listOfFileLines;
+		listOfFileLines=hservice.readAFile("./outputCheckstyle.txt");
+		String lastLine=listOfFileLines.get(listOfFileLines.size()-1);
+		int noOfErrors=listOfFileLines.size()-3;
 		if(lastLine.equals("Checkstyle ends with "+noOfErrors+" errors.")) {
 			return noOfErrors;
-		}
+		}		
 		else if(noOfErrors==-1) {
 			return 0;
 		}
 		return -1;
 	}
 
-	private int countPmdError() {
+	public int countPmdError() {
 		String path = "./outputPMD.txt";
-		return countNoOfLinesInAFile(path);
-	}
-
-	private int countNoOfLinesInAFile(String path) {
-		int lines = 0;
-		@SuppressWarnings("unused")
-		String line=null;
-		try (BufferedReader reader=new BufferedReader(new FileReader(path))){
-			while ((line=reader.readLine()) != null) lines++;
-		} catch (IOException e) {
-			log.error(e.getMessage());
-		} 
-		return lines;
+		List<String> listOfSimianErrors;		
+		listOfSimianErrors=hservice.readAFile(path);		
+		return listOfSimianErrors.size();
 	}
 
 	@Override
@@ -251,22 +229,9 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 	}
 
 	@Override
-	public String newProjectOfNewUserExecute(String pathOfGitRepo) throws InterruptedException {
-		cloneRepo(pathOfGitRepo);
-		int projectId=addNewProjectInfo();
+	public String newProjectOfNewUserExecute(int projectId) throws InterruptedException {
 		runTools();
 		return checkIfProjectIsGo(projectId);
-	}
-
-	@Override
-	public String legacyProjectOfNewUserExecute(String pathOfGitRepo) throws InterruptedException {
-		cloneRepo(pathOfGitRepo);
-		runTools();
-		ProjectInfo obtainedProjectObject=addLegacyProjectInfo();
-		cdao.updateReport(obtainedProjectObject.getProjectId(), obtainedProjectObject.getNoOfPmdErrorsThreshhold(),
-				obtainedProjectObject.getNoOfCheckstyleErrorsThreshhold(), obtainedProjectObject.getNoOfSimianErrorsThreshhold(), 
-				obtainedProjectObject.getNoOfYascaErrorsThreshold(), "GO");
-		return "GO";
 	}
 
 	@Override
@@ -315,7 +280,7 @@ public class CheckerToolServiceImpl implements CheckerToolService{
 		return listOfErrors;
 	}
 
-	private void getYascaErrors(List<String> listOfErrors, String filename) {
+	public void getYascaErrors(List<String> listOfErrors, String filename) {
 		listOfErrors.add(YASCA);
         try (CSVReader reader = new CSVReader(new FileReader("./outputYasca.csv"))){
             String[] line;
@@ -333,18 +298,44 @@ public class CheckerToolServiceImpl implements CheckerToolService{
         }
 	}
 
-	private void getPmdCheckstyleErrors(String toolname,List<String> listOfErrors,String filename) {
+	public void getPmdCheckstyleErrors(String toolname,List<String> listOfErrors,String filename) {
 		listOfErrors.add(toolname);
-		try (BufferedReader reader=new BufferedReader(new FileReader(OUTPUT+""+toolname+".txt"))){
-			String line;
-			while ((line = reader.readLine()) != null) {
-				if(line.contains(filename)) {
-					int index=line.indexOf("java:");
-					listOfErrors.add(line.substring(index+5));
-				}
+		List<String> listOfFileLines;
+		listOfFileLines=hservice.readAFile(OUTPUT+""+toolname+".txt");
+		for(String x:listOfFileLines) {
+			if(x.contains(filename)) {
+				int index=x.indexOf("java:");
+				listOfErrors.add(x.substring(index+5));
 			}
-		} catch (IOException e) {
-			log.error(e.getMessage());
-		} 
+		}
+	}
+
+	@Override
+	public Integer getProjectIdOfNewProject(String pathOfGitRepo) {
+		cloneRepo(pathOfGitRepo);
+		return addNewProjectInfo(); 
+	}
+
+
+	@Override
+	public ProjectInfo getProjectIdOfLegacyProject(String pathOfGitRepo) throws InterruptedException {
+		cloneRepo(pathOfGitRepo);
+		runTools();
+		return addLegacyProjectInfo();
+	}
+
+	@Override
+	public String legacyProjectOfNewUserExecute(ProjectInfo obtainedProjectObject) throws InterruptedException {
+		cdao.updateReport(obtainedProjectObject.getProjectId(), obtainedProjectObject.getNoOfPmdErrorsThreshhold(),
+				obtainedProjectObject.getNoOfCheckstyleErrorsThreshhold(), obtainedProjectObject.getNoOfSimianErrorsThreshhold(), 
+				obtainedProjectObject.getNoOfYascaErrorsThreshold(), "GO");
+		return "GO";
+	}
+
+	@Override
+	public List<String> getSimianErrorInAList() {
+		List<String> listOfSimianErrors;	
+		listOfSimianErrors=hservice.readAFile("outputSimian.txt");		
+		return listOfSimianErrors;
 	}
 }
